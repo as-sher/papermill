@@ -353,6 +353,8 @@ class FSharpTranslator(Translator) :
 # Instantiate a PapermillIO instance and register Handlers.
 papermill_translators = PapermillTranslators()
 papermill_translators.register("python", PythonTranslator)
+papermill_translators.register("pysparkkernel", PythonTranslator)
+papermill_translators.register("sparkkernel",ScalaTranslator)
 papermill_translators.register("R", RTranslator)
 papermill_translators.register("scala", ScalaTranslator)
 papermill_translators.register("julia", JuliaTranslator)
