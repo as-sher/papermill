@@ -97,11 +97,16 @@ def parameterize_notebook(nb, parameters, report_mode=False):
     else:
         # Inject to the top of the notebook
         logger.warning("Input notebook does not contain a cell with tag 'parameters'")
-        before = []
-        after = nb.cells
+        kernel_name = nb.metadata.kernelspec.name
+        if (kernel_name == 'pysparkkernel' or kernel_name == 'sparkkernel'):
+            before = [nb.cells[0]]
+            after = nb.cells[1:]
+        else:
+            before = []
+            after = nb.cells
 
-    nb.cells = before + [newcell] + after
-    nb.metadata.papermill['parameters'] = parameters
+        nb.cells = before + [newcell] + after
+        nb.metadata.papermill['parameters'] = parameters
 
     return nb
 
