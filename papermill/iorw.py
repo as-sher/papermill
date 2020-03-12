@@ -31,8 +31,6 @@ from .exceptions import (
     missing_environment_variable_generator,
 )
 
-sftp_username = 'admin'
-sftp_password = 'admin'
 
 try:
     from .s3 import S3
@@ -106,7 +104,7 @@ class PapermillIO(object):
             return notebook_metadata.decode('utf-8')
         return notebook_metadata
 
-    def write(self, buf, path, extensions=['.ipynb', '.json']):
+    def write(self, buf, path, extensions=['.ipynb', '.json'], **kwargs):
         if path == '-':
             try:
                 # Python 3
@@ -125,7 +123,7 @@ class PapermillIO(object):
             warnings.warn(
                 "The specified input file ({}) does not end in one of {}".format(path, extensions)
             )
-        return self.get_handler(path).write(buf, path)
+        return self.get_handler(path).write(buf, path, **kwargs)
 
     def listdir(self, path):
         return self.get_handler(path).listdir(path)
@@ -185,7 +183,7 @@ class LocalHandler(object):
     def __init__(self):
         self._cwd = None
 
-    def read(self, path):
+    def read(self, path, **kwargs):
         try:
             with chdir(self._cwd):
                 with io.open(path, 'r', encoding="utf-8") as f:
@@ -200,11 +198,11 @@ class LocalHandler(object):
                 # Propagate the IOError
                 raise e
 
-    def listdir(self, path):
+    def listdir(self, path, **kwargs):
         with chdir(self._cwd):
             return [os.path.join(path, fn) for fn in os.listdir(path)]
 
-    def write(self, buf, path):
+    def write(self, buf, path, **kwargs):
         with chdir(self._cwd):
             dirname = os.path.dirname(path)
             if dirname and not os.path.exists(dirname):
@@ -212,10 +210,10 @@ class LocalHandler(object):
             with io.open(path, 'w', encoding="utf-8") as f:
                 f.write(buf)
 
-    def pretty_path(self, path):
+    def pretty_path(self, path, **kwargs):
         return path
 
-    def cwd(self, new_path):
+    def cwd(self, new_path, **kwargs):
         '''Sets the cwd during reads and writes'''
         old_cwd = self._cwd
         self._cwd = new_path
@@ -224,13 +222,15 @@ class LocalHandler(object):
 class SFTPHandler(object):
 
     @classmethod
-    def read(cls, path):
+    def read(cls, path,**kwargs):
         """
         Read a notebook from an SFTP server.
         """
         parsed_url = urllib.parse.urlparse(path)
         cnopts = pysftp.CnOpts()
         cnopts.hostkeys = None
+        sftp_username = kwargs.get('sftp_username')
+        sftp_password = kwargs.get('sftp_password')
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_file = pathlib.Path(tmpdir) / pathlib.Path(parsed_url.path).name
             with pysftp.Connection(
@@ -244,13 +244,15 @@ class SFTPHandler(object):
             return tmp_file.read_text()
 
     @classmethod
-    def write(cls, file_content, path):
+    def write(cls, file_content, path, **kwargs):
         """
         Write a notebook to an SFTP server.
         """
         parsed_url = urllib.parse.urlparse(path)
         cnopts = pysftp.CnOpts()
         cnopts.hostkeys = None
+        sftp_username = kwargs.get('sftp_username')
+        sftp_password = kwargs.get('sftp_password')
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_file = pathlib.Path(tmpdir) / "output.ipynb"
             tmp_file.write_text(file_content)
@@ -264,28 +266,28 @@ class SFTPHandler(object):
                 sftp.put(str(tmp_file), parsed_url.path)
 
     @classmethod
-    def pretty_path(cls, path):
+    def pretty_path(cls, path, **kwargs):
         return path
 
     @classmethod
-    def listdir(cls, path):
+    def listdir(cls, path, **kwargs):
         raise NotImplementedError
 
 class S3Handler(object):
     @classmethod
-    def read(cls, path):
+    def read(cls, path, **kwargs):
         return "\n".join(S3().read(path))
 
     @classmethod
-    def listdir(cls, path):
+    def listdir(cls, path, **kwargs):
         return S3().listdir(path)
 
     @classmethod
-    def write(cls, buf, path):
+    def write(cls, buf, path, **kwargs):
         return S3().cp_string(buf, path)
 
     @classmethod
-    def pretty_path(cls, path):
+    def pretty_path(cls, path, **kwargs):
         return path
 
 
@@ -293,22 +295,22 @@ class ADLHandler(object):
     def __init__(self):
         self._client = None
 
-    def _get_client(self):
+    def _get_client(self, **kwargs):
         if self._client is None:
             self._client = ADL()
         return self._client
 
-    def read(self, path):
-        lines = self._get_client().read(path)
+    def read(self, path, **kwargs):
+        lines = self._get_client(**kwargs).read(path)
         return "\n".join(lines)
 
-    def listdir(self, path):
-        return self._get_client().listdir(path)
+    def listdir(self, path, **kwargs):
+        return self._get_client(**kwargs).listdir(path)
 
-    def write(self, buf, path):
-        return self._get_client().write(buf, path)
+    def write(self, buf, path, **kwargs):
+        return self._get_client(**kwargs).write(buf, path)
 
-    def pretty_path(self, path):
+    def pretty_path(self, path, **kwargs):
         return path
 
 
@@ -316,22 +318,22 @@ class ABSHandler(object):
     def __init__(self):
         self._client = None
 
-    def _get_client(self):
+    def _get_client(self, **kwargs):
         if self._client is None:
             self._client = AzureBlobStore()
         return self._client
 
-    def read(self, path):
-        lines = self._get_client().read(path)
+    def read(self, path, **kwargs):
+        lines = self._get_client(**kwargs).read(path)
         return "\n".join(lines)
 
-    def listdir(self, path):
-        return self._get_client().listdir(path)
+    def listdir(self, path, **kwargs):
+        return self._get_client(**kwargs).listdir(path)
 
-    def write(self, buf, path):
-        return self._get_client().write(buf, path)
+    def write(self, buf, path, **kwargs):
+        return self._get_client(**kwargs).write(buf, path)
 
-    def pretty_path(self, path):
+    def pretty_path(self, path, **kwargs):
         return path
 
 
@@ -344,19 +346,19 @@ class GCSHandler(object):
     def __init__(self):
         self._client = None
 
-    def _get_client(self):
+    def _get_client(self,**kwargs):
         if self._client is None:
             self._client = GCSFileSystem()
         return self._client
 
-    def read(self, path):
-        with self._get_client().open(path) as f:
+    def read(self, path, **kwargs):
+        with self._get_client(**kwargs).open(path) as f:
             return f.read()
 
-    def listdir(self, path):
-        return self._get_client().ls(path)
+    def listdir(self, path,**kwargs):
+        return self._get_client(**kwargs).ls(path)
 
-    def write(self, buf, path):
+    def write(self, buf, path, **kwargs):
         # Wrapped so we can mock retry options during testing
         @retry(
             retry=retry_if_exception_type(PapermillRateLimitException),
@@ -382,7 +384,7 @@ class GCSHandler(object):
 
         return retry_write()
 
-    def pretty_path(self, path):
+    def pretty_path(self, path, **kwargs):
         return path
 
 
@@ -408,21 +410,21 @@ papermill_io.register("sftp://",SFTPHandler())
 papermill_io.register_entry_points()
 
 
-def read_yaml_file(path):
+def read_yaml_file(path,**kwargs):
     """Reads a YAML file from the location specified at 'path'."""
     return yaml.load(papermill_io.read(path, ['.json', '.yaml', '.yml']), Loader=NoDatesSafeLoader)
 
 
-def write_ipynb(nb, path):
+def write_ipynb(nb, path, **kwargs):
     """Saves a notebook object to the specified path.
     Args:
         nb_node (nbformat.NotebookNode): Notebook object to save.
         notebook_path (str): Path to save the notebook object to.
     """
-    papermill_io.write(nbformat.writes(nb), path)
+    papermill_io.write(nbformat.writes(nb), path, **kwargs)
 
 
-def load_notebook_node(notebook_path):
+def load_notebook_node(notebook_path,**kwargs):
     """Returns a notebook object with papermill metadata loaded from the specified path.
 
     Args:
@@ -450,12 +452,12 @@ def load_notebook_node(notebook_path):
     return nb
 
 
-def list_notebook_files(path):
+def list_notebook_files(path,**kwargs):
     """Returns a list of all the notebook files in a directory."""
     return [p for p in papermill_io.listdir(path) if p.endswith('.ipynb')]
 
 
-def get_pretty_path(path):
+def get_pretty_path(path,**kwargs):
     return papermill_io.pretty_path(path)
 
 

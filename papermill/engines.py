@@ -131,7 +131,7 @@ class NotebookExecutionManager(object):
         a 5 hour cell execution to capture output messages in the notebook.
         """
         if self.output_path:
-            write_ipynb(self.nb, self.output_path)
+            write_ipynb(self.nb, self.output_path , **kwargs)
 
     @catch_nb_assignment
     def notebook_start(self, **kwargs):
@@ -167,7 +167,7 @@ class NotebookExecutionManager(object):
             if cell.get("outputs") is not None:
                 cell.outputs = []
 
-        self.save()
+        self.save(**kwargs)
 
     @catch_nb_assignment
     def cell_start(self, cell, cell_index=None, **kwargs):
@@ -184,8 +184,7 @@ class NotebookExecutionManager(object):
         cell.metadata.papermill['start_time'] = self.now().isoformat()
         cell.metadata.papermill["status"] = self.RUNNING
         cell.metadata.papermill['exception'] = False
-
-        self.save()
+        self.save(**kwargs)
 
     @catch_nb_assignment
     def cell_exception(self, cell, cell_index=None, **kwargs):
@@ -223,8 +222,7 @@ class NotebookExecutionManager(object):
             cell.metadata.papermill['duration'] = (end_time - start_time).total_seconds()
         if cell.metadata.papermill['status'] != self.FAILED:
             cell.metadata.papermill['status'] = self.COMPLETED
-
-        self.save()
+        self.save(**kwargs)
         if self.pbar:
             self.pbar.update(1)
 
@@ -254,7 +252,7 @@ class NotebookExecutionManager(object):
         self.cleanup_pbar()
 
         # Force a final sync
-        self.save()
+        self.save(**kwargs)
 
     def complete_pbar(self):
         """Refresh progress bar"""
@@ -298,8 +296,7 @@ class Engine(object):
         nb_man = NotebookExecutionManager(
             nb, output_path=output_path, progress_bar=progress_bar, log_output=log_output
         )
-
-        nb_man.notebook_start()
+        nb_man.notebook_start(**kwargs)
         try:
             nb = cls.execute_managed_notebook(nb_man, kernel_name, log_output=log_output, **kwargs)
             # Update the notebook object in case the executor didn't do it for us
@@ -307,7 +304,7 @@ class Engine(object):
                 nb_man.nb = nb
         finally:
             nb_man.cleanup_pbar()
-            nb_man.notebook_complete()
+            nb_man.notebook_complete(**kwargs)
 
         return nb_man.nb
 

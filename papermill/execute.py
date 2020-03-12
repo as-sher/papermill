@@ -108,7 +108,7 @@ def execute_notebook(
             raise_for_execution_errors(nb, output_path)
 
         # Write final output in case the engine didn't write it on cell completion.
-        write_ipynb(nb, output_path)
+        write_ipynb(nb, output_path, **engine_kwargs)
 
         return nb
 

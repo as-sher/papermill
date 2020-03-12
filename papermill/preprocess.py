@@ -57,7 +57,7 @@ class PapermillExecutePreprocessor(ExecutePreprocessor):
         nb = nb_man.nb
         for index, cell in enumerate(nb.cells):
             try:
-                nb_man.cell_start(cell, index)
+                nb_man.cell_start(cell, index,**resources)
                 if not cell.source:
                     continue
                 nb.cells[index], resources = self.preprocess_cell(cell, resources, index)
@@ -65,10 +65,10 @@ class PapermillExecutePreprocessor(ExecutePreprocessor):
                 nb_man.cell_exception(nb.cells[index], cell_index=index, exception=ex)
                 break
             finally:
-                nb_man.cell_complete(nb.cells[index], cell_index=index)
+                nb_man.cell_complete(nb.cells[index], cell_index=index, **resources)
         return nb, resources
 
-    def log_output_message(self, output):
+    def log_output_message(self, output,**kwargs):
         """
         Process a given output. May log it in the configured logger and/or write it into
         the configured stdout/stderr files.
@@ -82,14 +82,14 @@ class PapermillExecutePreprocessor(ExecutePreprocessor):
                 if self.log_output:
                     self.log.info(content)
                 if self.stdout_file:
-                    self.stdout_file.write(content)
+                    self.stdout_file.write(content,**kwargs)
                     self.stdout_file.flush()
             elif output.name == "stderr":
                 if self.log_output:
                     # In case users want to redirect stderr differently, pipe to warning
                     self.log.warning(content)
                 if self.stderr_file:
-                    self.stderr_file.write(content)
+                    self.stderr_file.write(content,**kwargs)
                     self.stderr_file.flush()
         elif self.log_output and ("data" in output and "text/plain" in output.data):
             self.log.info("".join(output.data['text/plain']))
@@ -97,5 +97,5 @@ class PapermillExecutePreprocessor(ExecutePreprocessor):
     def process_message(self, *arg, **kwargs):
         output = super(PapermillExecutePreprocessor, self).process_message(*arg, **kwargs)
         if output and (self.log_output or self.stderr_file or self.stdout_file):
-            self.log_output_message(output)
+            self.log_output_message(output,kwargs)
         return output
