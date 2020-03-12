@@ -12,6 +12,10 @@ import nbformat
 import requests
 import warnings
 import entrypoints
+import urllib.parse
+import tempfile
+import pathlib
+import pysftp
 
 from contextlib import contextmanager
 
@@ -26,6 +30,9 @@ from .exceptions import (
     missing_dependency_generator,
     missing_environment_variable_generator,
 )
+
+sftp_username = 'admin'
+sftp_password = 'admin'
 
 try:
     from .s3 import S3
@@ -214,6 +221,55 @@ class LocalHandler(object):
         self._cwd = new_path
         return old_cwd
 
+class SFTPHandler(object):
+
+    @classmethod
+    def read(cls, path):
+        """
+        Read a notebook from an SFTP server.
+        """
+        parsed_url = urllib.parse.urlparse(path)
+        cnopts = pysftp.CnOpts()
+        cnopts.hostkeys = None
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_file = pathlib.Path(tmpdir) / pathlib.Path(parsed_url.path).name
+            with pysftp.Connection(
+                    parsed_url.hostname,
+                    username=sftp_username,
+                    password=sftp_password,
+                    port=(parsed_url.port or 22),
+                    cnopts=cnopts,
+            ) as sftp:
+                sftp.get(parsed_url.path, str(tmp_file))
+            return tmp_file.read_text()
+
+    @classmethod
+    def write(cls, file_content, path):
+        """
+        Write a notebook to an SFTP server.
+        """
+        parsed_url = urllib.parse.urlparse(path)
+        cnopts = pysftp.CnOpts()
+        cnopts.hostkeys = None
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_file = pathlib.Path(tmpdir) / "output.ipynb"
+            tmp_file.write_text(file_content)
+            with pysftp.Connection(
+                    parsed_url.hostname,
+                    username=sftp_username,
+                    password=sftp_password,
+                    port=(parsed_url.port or 22),
+                    cnopts=cnopts,
+            ) as sftp:
+                sftp.put(str(tmp_file), parsed_url.path)
+
+    @classmethod
+    def pretty_path(cls, path):
+        return path
+
+    @classmethod
+    def listdir(cls, path):
+        raise NotImplementedError
 
 class S3Handler(object):
     @classmethod
@@ -348,6 +404,7 @@ papermill_io.register("abs://", ABSHandler())
 papermill_io.register("http://", HttpHandler)
 papermill_io.register("https://", HttpHandler)
 papermill_io.register("gs://", GCSHandler())
+papermill_io.register("sftp://",SFTPHandler())
 papermill_io.register_entry_points()
 
 
