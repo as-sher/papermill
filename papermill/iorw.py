@@ -336,6 +336,29 @@ class ABSHandler(object):
     def pretty_path(self, path, **kwargs):
         return path
 
+class HDFSHandler(object):
+    def __init__(self):
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            self._client = HadoopFileSystem()
+        return self._client
+
+    def read(self, path):
+        with self._get_client().open(path, 'rb') as f:
+            return f.read()
+
+    def listdir(self, path):
+        return self._get_client().ls(path)
+
+    def write(self, buf, path):
+        with self._get_client().open(path, 'wb') as f:
+            return f.write(str.encode(buf))
+
+    def pretty_path(self, path):
+        return path
+
 
 class GCSHandler(object):
     RATE_LIMIT_RETRIES = 3
@@ -406,6 +429,7 @@ papermill_io.register("abs://", ABSHandler())
 papermill_io.register("http://", HttpHandler)
 papermill_io.register("https://", HttpHandler)
 papermill_io.register("gs://", GCSHandler())
+papermill_io.register("hdfs://",HDFSHandler())
 papermill_io.register("sftp://",SFTPHandler())
 papermill_io.register_entry_points()
 
