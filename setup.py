@@ -52,12 +52,16 @@ def read_reqs(fname):
 s3_reqs = read_reqs('requirements-s3.txt')
 azure_reqs = read_reqs('requirements-azure.txt')
 gcs_reqs = read_reqs('requirements-gcs.txt')
-all_reqs = s3_reqs + azure_reqs + gcs_reqs
+hdfs_req = read_reqs('requirements-hdfs.txt')
+sftp_req = read_reqs('requirements-sftp.txt')
+all_reqs = read_reqs('requirements.txt') + s3_reqs + azure_reqs + gcs_reqs + sftp_req + hdfs_req
 dev_reqs = read_reqs('requirements-dev.txt') + all_reqs
 extras_require = {
     "test": dev_reqs,
     "dev": dev_reqs,
     "all": all_reqs,
+    "hdfs": hdfs_req,
+    "sftp": sftp_req,
     "s3": s3_reqs,
     "azure": azure_reqs,
     "gcs": gcs_reqs,
@@ -80,7 +84,7 @@ setup(
     long_description_content_type='text/markdown',
     url='https://github.com/nteract/papermill',
     packages=['papermill'],
-    install_requires=read_reqs('requirements.txt'),
+    install_requires=all_reqs,
     extras_require=extras_require,
     entry_points={'console_scripts': ['papermill = papermill.cli:papermill']},
     project_urls={
